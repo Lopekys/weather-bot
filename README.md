@@ -15,7 +15,7 @@ To run this bot locally, you need:
 First, clone the repository to your local machine:
 
 ```bash
-git clone https://github.com/yourusername/telegram-weather-bot.git
+git clone https://github.com/Lopekys/weather-bot.git
 ```
 
 ### 2. Install Dependencies
