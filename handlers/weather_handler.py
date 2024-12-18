@@ -1,7 +1,9 @@
-from aiogram.types import Message
-from utils.translit_utils import transliterate_city
 import python_weather
 from python_weather import Client as WeatherClient
+
+from aiogram.types import Message
+from utils.translit_utils import transliterate_city
+
 
 async def message_handler(message: Message) -> None:
     if not message.text:
