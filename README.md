@@ -45,9 +45,17 @@ python main.py
 ---
 
 ## Features
-- 🌦 **Weather Updates**: Get current weather information for any city around the world.
-- 🔤 **Transliteration**: Supports transliteration of non-Latin city names into a format that the weather API can recognize.
-- 🧩 **User-friendly Interaction**: Easy-to-use commands and inline buttons for smooth user experience.
-- ⏱ **Real-Time Data**: Retrieves weather data in real time from a weather API.
+
+- 🌦 **Current Weather:** Get real-time weather conditions for any city around the world.
+- 📅 **Forecast:** 5-day forecast with detailed 3-hour intervals; specify any number of days on demand.
+- 🕒 **Hourly Forecast:** Detailed forecast for the next 24 hours in 3-hour steps.
+- 🔤 **Transliteration:** Supports city name transliteration (Cyrillic) for correct API recognition.
+- 🏭 **Air Quality Index:** Check air pollution and key component levels (AQI, CO, NO₂, PM2.5, and more).
+- 📋 **Detailed Weather Info:** See all available weather data — min/max temperature, feels like, pressure, humidity, visibility, cloudiness, and more.
+- 🌅 **Sunrise & Sunset:** Quickly view sunrise and sunset times for any city.
+- 💨 **Wind Details:** Get wind speed, direction, and gusts for any city.
+- 🧩 **User-Friendly Interaction:** Intuitive commands, clear formatting, and emoji for fast navigation.
+- ⏱ **Real-Time Data:** Always up-to-date — directly from the OpenWeather API.
+
 
 ---
