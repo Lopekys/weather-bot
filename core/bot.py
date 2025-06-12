@@ -21,11 +21,9 @@ async def main() -> None:
     bot = Bot(token=TELEGRAM_BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
 
-    # Register handlers
     dp.message.register(start_handler.command_start_handler, CommandStart())
     dp.message.register(weather_handler.message_handler)
 
-    # Start polling
     await dp.start_polling(bot)
 
 
