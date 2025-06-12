@@ -31,9 +31,9 @@ async def start_handler(message: Message) -> None:
         "👋 <b>Welcome to WeatherBot!</b>\n\n"
         "I can provide you with current weather, forecast, air quality, and more for any city in the world.\n\n"
         "<b>How to use:</b>\n"
-        "• <code>/weather London</code> - Get current weather in London\n"
-        "• <code>/forecast Paris 2</code> - 2-day forecast for Paris\n"
-        "• <code>/help</code> - Full command list\n\n"
+        "•/weather London - Get current weather in London\n"
+        "•/forecast Paris 2 - 2 day forecast for Paris\n"
+        "•/help - Full command list\n\n"
         "Just type a command to get started!"
     )
     await message.answer(text)
