@@ -19,3 +19,14 @@ ENV/
 *.egg-info/
 dist/
 build/
+
+# SQLite DB file
+*.sqlite3
+*.db
+
+# Alembic/migration logs
+alembic.ini
+
+# System files
+.DS_Store
+Thumbs.db

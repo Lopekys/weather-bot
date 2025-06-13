@@ -217,3 +217,7 @@ def format_wind_message(data: dict) -> str:
         f"🧭 <b>Direction:</b> {deg}° ({dir_str})\n"
         f"💨 <b>Gusts:</b> {gust if gust != '-' else 'No data'}"
     )
+
+
+def get_time_text(time: str) -> str:
+    return f"\n• <b>Time:</b> {time}" if time else ""
