@@ -1,92 +1,123 @@
-import os
-
+from aiogram.filters import Command
 from aiogram.types import Message
-from dotenv import load_dotenv
+from aiogram import types
 
+from core.config import WEATHER_API_KEY
+from handlers.subscribe_handler import main_keyboard
+from handlers.messages import (
+    START_TEXT, HELP_TEXT, CITY_REQUIRED,
+    TRANSLIT_ERROR, API_ERROR, CITY_NOT_FOUND, UNKNOWN_COMMAND,
+)
 from utils.format_message import (
-    group_forecasts_by_day,
-    format_forecast_message,
-    format_hourly_message,
-    format_weather_message,
-    format_air_quality_message,
-    format_details_message,
-    format_sunrise_sunset_message,
-    format_wind_message,
+    group_forecasts_by_day, format_forecast_message, format_hourly_message,
+    format_weather_message, format_air_quality_message, format_details_message,
+    format_sunrise_sunset_message, format_wind_message,
 )
 from utils.translit_utils import transliterate_city
 from utils.weather_api import (
-    get_current_weather_full,
-    get_forecast_json,
-    get_city_coordinates,
-    get_air_quality,
+    get_current_weather_full, get_forecast_json,
+    get_city_coordinates, get_air_quality,
 )
 
-load_dotenv()
-WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
+
+def parse_city_and_handle_errors(example_command):
+    def decorator(func):
+        async def wrapper(message: Message, *args, **kwargs):
+            command = message.text.split(maxsplit=1)
+            if len(command) < 2:
+                await message.answer(CITY_REQUIRED.format(example=example_command))
+                return
+            city = command[1].strip()
+            try:
+                city_transliterated = transliterate_city(city)
+            except Exception as e:
+                await message.answer(TRANSLIT_ERROR.format(error=e))
+                return
+            return await func(message, city_transliterated, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
-# /start
 async def start_handler(message: Message) -> None:
-    text = (
-        "👋 <b>Welcome to WeatherBot!</b>\n\n"
-        "I can provide you with current weather, forecast, air quality, and more for any city in the world.\n\n"
-        "<b>How to use:</b>\n"
-        "•/weather London - Get current weather in London\n"
-        "•/forecast Paris 2 - 2 day forecast for Paris\n"
-        "•/help - Full command list\n\n"
-        "Just type a command to get started!"
-    )
-    await message.answer(text)
+    await message.answer(START_TEXT, reply_markup=main_keyboard)
 
 
-# /help
 async def help_handler(message: Message) -> None:
-    text = (
-        "<b>Available commands:</b>\n\n"
-        "/start - Welcome and quick guide\n"
-        "/help - List of all commands\n"
-        "/weather - Current weather in the specified city\n"
-        "/forecast - weather forecast for the city\n"
-        "/hourly - Hourly forecast for the next 24 hours\n"
-        "/air - Air quality index for the city\n"
-        "/details - Extended weather info (humidity, pressure, etc.)\n"
-        "/sun - Sunrise and sunset times\n"
-        "/wind - Wind speed and direction\n"
-    )
-    await message.answer(text)
+    await message.answer(HELP_TEXT, reply_markup=main_keyboard)
 
 
-# /current weather
-async def weather_handler(message: Message) -> None:
-    args = message.text.split(maxsplit=1)
-    if len(args) < 2:
-        await message.answer("Please specify a city, e.g. /weather London")
-        return
-    city = args[1].strip()
-    try:
-        city_transliterated = transliterate_city(city)
-    except Exception as e:
-        await message.answer(f"Error during city transliteration: {e}")
-        return
-
-    data = await get_current_weather_full(city_transliterated, WEATHER_API_KEY)
+@parse_city_and_handle_errors("/weather London")
+async def weather_handler(message: Message, city, **kwargs):
+    data = await get_current_weather_full(city, WEATHER_API_KEY)
     if not data:
-        await message.answer("Error: could not retrieve weather data.")
+        await message.answer(API_ERROR.format(what="weather"))
         return
-
     msg = format_weather_message(data)
     await message.answer(msg)
 
 
-# /forecast for n day
-async def forecast_handler(message: Message) -> None:
-    args = message.text.split(maxsplit=2)
-    if len(args) < 2:
-        await message.answer("Please specify a city, e.g. /forecast Paris 2")
+@parse_city_and_handle_errors("/details Rome")
+async def details_handler(message: Message, city, **kwargs):
+    data = await get_current_weather_full(city, WEATHER_API_KEY)
+    if not data:
+        await message.answer(API_ERROR.format(what="detailed weather"))
         return
-    city = args[1].strip()
+    msg = format_details_message(data)
+    await message.answer(msg)
+
+
+@parse_city_and_handle_errors("/sun Rome")
+async def sun_handler(message: Message, city, **kwargs):
+    data = await get_current_weather_full(city, WEATHER_API_KEY)
+    if not data:
+        await message.answer(API_ERROR.format(what="sun info"))
+        return
+    msg = format_sunrise_sunset_message(data)
+    await message.answer(msg)
+
+
+@parse_city_and_handle_errors("/wind Rome")
+async def wind_handler(message: Message, city, **kwargs):
+    data = await get_current_weather_full(city, WEATHER_API_KEY)
+    if not data:
+        await message.answer(API_ERROR.format(what="wind info"))
+        return
+    msg = format_wind_message(data)
+    await message.answer(msg)
+
+
+@parse_city_and_handle_errors("/hourly Rome")
+async def hourly_handler(message: Message, city, **kwargs):
+    data = await get_forecast_json(city, WEATHER_API_KEY)
+    if not data:
+        await message.answer(API_ERROR.format(what="forecast"))
+        return
+    forecasts = data.get("list", [])
+    result = format_hourly_message(city, forecasts)
+    await message.answer(result)
+
+
+@parse_city_and_handle_errors("/air Paris")
+async def air_handler(message: Message, city, **kwargs):
+    lat, lon = await get_city_coordinates(city, WEATHER_API_KEY)
+    if not lat or not lon:
+        await message.answer(CITY_NOT_FOUND)
+        return
+    data = await get_air_quality(lat, lon, WEATHER_API_KEY)
+    if not data or "list" not in data or not data["list"]:
+        await message.answer(API_ERROR.format(what="air quality"))
+        return
+    msg = format_air_quality_message(city, data["list"][0])
+    await message.answer(msg)
+
+
+@parse_city_and_handle_errors("/forecast Paris 2")
+async def forecast_handler(message: Message, city, **kwargs):
+    args = message.text.split()
     days = 2
-    if len(args) == 3:
+    if len(args) >= 3:
         try:
             days = int(args[2])
             if days < 1 or days > 5:
@@ -94,135 +125,31 @@ async def forecast_handler(message: Message) -> None:
         except ValueError:
             pass
 
-    try:
-        city_transliterated = transliterate_city(city)
-    except Exception as e:
-        await message.answer(f"Error during city transliteration: {e}")
-        return
-
-    data = await get_forecast_json(city_transliterated, WEATHER_API_KEY)
+    city_name = args[1]
+    data = await get_forecast_json(city_name, WEATHER_API_KEY)
     if not data:
-        await message.answer("Error: could not retrieve forecast.")
+        await message.answer(API_ERROR.format(what="forecast"))
         return
 
     forecasts = data.get("list", [])
     max_intervals = min(days * 8, len(forecasts))
     grouped = group_forecasts_by_day(forecasts, max_intervals)
-    result = format_forecast_message(city_transliterated, grouped, days)
+    result = format_forecast_message(city_name, grouped, days)
     await message.answer(result)
 
 
-# /forecast for 24 h
-async def hourly_handler(message: Message) -> None:
-    args = message.text.split(maxsplit=1)
-    if len(args) < 2:
-        await message.answer("Please specify a city, e.g. /hourly Rome")
-        return
-    city = args[1].strip()
-    try:
-        city_transliterated = transliterate_city(city)
-    except Exception as e:
-        await message.answer(f"Error during city transliteration: {e}")
-        return
-
-    data = await get_forecast_json(city_transliterated, WEATHER_API_KEY)
-    if not data:
-        await message.answer("Error: could not retrieve forecast.")
-        return
-
-    forecasts = data.get("list", [])
-    result = format_hourly_message(city_transliterated, forecasts)
-    await message.answer(result)
+async def fallback_handler(message: types.Message):
+    if message.text.startswith('/'):
+        await message.reply(UNKNOWN_COMMAND)
 
 
-# /air  quality
-async def air_handler(message: Message) -> None:
-    args = message.text.split(maxsplit=1)
-    if len(args) < 2:
-        await message.answer("Please specify a city, e.g. /air Paris")
-        return
-    city = args[1].strip()
-    try:
-        city_transliterated = transliterate_city(city)
-    except Exception as e:
-        await message.answer(f"Error during city transliteration: {e}")
-        return
-
-    lat, lon = await get_city_coordinates(city_transliterated, WEATHER_API_KEY)
-    if not lat or not lon:
-        await message.answer("City not found.")
-        return
-
-    data = await get_air_quality(lat, lon, WEATHER_API_KEY)
-    if not data or "list" not in data or not data["list"]:
-        await message.answer("Error: could not retrieve air quality data.")
-        return
-
-    msg = format_air_quality_message(city_transliterated, data["list"][0])
-    await message.answer(msg)
-
-
-# /Detailed weather
-async def details_handler(message: Message) -> None:
-    args = message.text.split(maxsplit=1)
-    if len(args) < 2:
-        await message.answer("Please specify a city, e.g. /details Rome")
-        return
-    city = args[1].strip()
-    try:
-        city_transliterated = transliterate_city(city)
-    except Exception as e:
-        await message.answer(f"Error during city transliteration: {e}")
-        return
-
-    data = await get_current_weather_full(city_transliterated, WEATHER_API_KEY)
-    if not data:
-        await message.answer("Error: could not retrieve detailed weather data.")
-        return
-
-    msg = format_details_message(data)
-    await message.answer(msg)
-
-
-# /sunrise and sunset
-async def sun_handler(message: Message) -> None:
-    args = message.text.split(maxsplit=1)
-    if len(args) < 2:
-        await message.answer("Please specify a city, e.g. /sun Rome")
-        return
-    city = args[1].strip()
-    try:
-        city_transliterated = transliterate_city(city)
-    except Exception as e:
-        await message.answer(f"Error during city transliteration: {e}")
-        return
-
-    data = await get_current_weather_full(city_transliterated, WEATHER_API_KEY)
-    if not data:
-        await message.answer("Error: could not retrieve sun info.")
-        return
-
-    msg = format_sunrise_sunset_message(data)
-    await message.answer(msg)
-
-
-# /wind
-async def wind_handler(message: Message) -> None:
-    args = message.text.split(maxsplit=1)
-    if len(args) < 2:
-        await message.answer("Please specify a city, e.g. /wind Rome")
-        return
-    city = args[1].strip()
-    try:
-        city_transliterated = transliterate_city(city)
-    except Exception as e:
-        await message.answer(f"Error during city transliteration: {e}")
-        return
-
-    data = await get_current_weather_full(city_transliterated, WEATHER_API_KEY)
-    if not data:
-        await message.answer("Error: could not retrieve wind info.")
-        return
-
-    msg = format_wind_message(data)
-    await message.answer(msg)
+def register_weather(dp):
+    dp.message.register(start_handler, Command("start"))
+    dp.message.register(help_handler, Command("help"))
+    dp.message.register(weather_handler, Command("weather"))
+    dp.message.register(forecast_handler, Command("forecast"))
+    dp.message.register(hourly_handler, Command("hourly"))
+    dp.message.register(air_handler, Command("air"))
+    dp.message.register(details_handler, Command("details"))
+    dp.message.register(sun_handler, Command("sun"))
+    dp.message.register(wind_handler, Command("wind"))
